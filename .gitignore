@@ -1,0 +1,89 @@
+# General macOS files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# macOS Icon file
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear on external disk
+.Spotlight-V100
+.Trashes
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.ko
+*.obj
+*.elf
+*.gch
+*.pch
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Package Files
+*.dmg
+*.pkg
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+*.tar.xz
+*.tgz
+*.tar.bz2
+*.tbz2
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# Vim swap files
+*.swp
+*.swo
+
+# Go specific files
+*.test
+*.prof
+bin/
+pkg/
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Project specific files
+data.log
+data.snapshot
