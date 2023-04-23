@@ -2,20 +2,22 @@ package simpleredisclient
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
+	"time"
+
+	"github.com/sony/gobreaker"
 )
 
 type Client struct {
 	pool    *sync.Pool
-	address string
+	breaker *gobreaker.CircuitBreaker
 }
 
 func NewClient(address string, maxConnections int) *Client {
 	client := &Client{
-		address: address,
 		pool: &sync.Pool{
 			New: func() interface{} {
 				conn, err := net.Dial("tcp", address)
@@ -32,33 +34,70 @@ func NewClient(address string, maxConnections int) *Client {
 		client.pool.Put(client.pool.New())
 	}
 
+	client.breaker = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		MaxRequests: 5,
+		Interval:    time.Second * 60,
+		Timeout:     time.Second * 5,
+	})
+
 	return client
 }
 
-func (c *Client) ExecuteCommand(command string) (string, error) {
-	// Get a connection from the pool
-	conn := c.pool.Get().(net.Conn)
-	defer c.pool.Put(conn)
+func (c *Client) Set(key, value string) (string, error) {
+	return c.sendCommand("SET", key, value)
+}
 
-	// Send the command to the server
-	fmt.Fprintln(conn, command)
+func (c *Client) Get(key string) (string, error) {
+	return c.sendCommand("GET", key)
+}
 
-	// Read the server response
-	reader := bufio.NewReader(conn)
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return "", errors.New("error reading server response")
-	}
+func (c *Client) Del(key string) (string, error) {
+	return c.sendCommand("DEL", key)
+}
 
-	return response, nil
+func (c *Client) HSet(key, field string, value interface{}) (string, error) {
+	return c.sendCommand("HSET", key, field, fmt.Sprintf("%v", value))
 }
 
 func (c *Client) Close() {
 	for {
-		conn, ok := c.pool.Get().(net.Conn)
-		if !ok {
-			break
-		}
-		conn.Close()
+		c.getConnection().Close()
 	}
+}
+
+// getConnection retrieves a connection from the pool
+func (c *Client) getConnection() net.Conn {
+	return c.pool.Get().(net.Conn)
+}
+
+// putConnection returns a connection to the pool
+func (c *Client) putConnection(conn net.Conn) {
+	c.pool.Put(conn)
+}
+
+// sendCommand sends a command to the simplified Redis server
+func (c *Client) sendCommand(args ...string) (string, error) {
+	resp, err := c.breaker.Execute(func() (interface{}, error) {
+		conn := c.getConnection()
+		defer c.putConnection(conn)
+
+		cmd := strings.Join(args, " ") + "\r\n"
+		_, err := conn.Write([]byte(cmd))
+		if err != nil {
+			return "", err
+		}
+
+		r := bufio.NewReader(conn)
+		resp, err := r.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+
+		return strings.Trim(resp, "\r\n"), nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+	return resp.(string), nil
 }
